@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { Service, Peripheral, Characteristic } from '@abandonware/noble'
 import { YunchenScaleMeasurement } from './YunchenScaleMeasurement'
+import { YunchenScaleProfile } from './YunchenScaleProfile'
 
 // Doc: https://github.com/oliexdev/openScale/blob/master/android_app/app/src/main/java/com/health/openscale/core/bluetooth/BluetoothHesley.java
 
@@ -40,11 +41,11 @@ export class YunchenScale extends EventEmitter {
     return this.peripheral.advertisement.localName
   }
 
-  async getMeasurement(bytes: string): Promise<YunchenScaleMeasurement> {
+  async getMeasurement(profile: YunchenScaleProfile): Promise<YunchenScaleMeasurement> {
     await this.connect()
     await this.discoverServicesAndCharacteristics()
     await this.subscribeToWeightMeasurements()
-    this.sendMagicBytes(bytes)
+    this.sendMagicBytes(profile)
     const measurement = await this.waitForDefiniteWeightMeasurement()
     await this.disconnect()
     return measurement
@@ -102,10 +103,16 @@ export class YunchenScale extends EventEmitter {
     })
   }
 
+  protected computeMagicBytes(profile: YunchenScaleProfile): Buffer {
+    const p = Object.assign({ waistCircumference: 80, hipCircumference: 90 }, profile)
+    const checksum = 165 ^ p.gender ^ p.age ^ p.height ^ p.waistCircumference ^ p.hipCircumference
+    const bytes = [165, p.gender, p.age, p.height, p.waistCircumference, p.hipCircumference, checksum]
+    return Buffer.from(bytes)
+  }
+
   // send magic bytes
-  protected sendMagicBytes(bytes: string): void {
-    // a5 [male=00,female=01] [age] [height] 50 5a [??]
-    const buf = Buffer.from(bytes, 'hex')
+  protected sendMagicBytes(profile: YunchenScaleProfile): void {
+    const buf = this.computeMagicBytes(profile)
     const c = this.characteristics[CMD_MEASUREMENT_CHARACTERISTIC]
     this.sendId = setInterval(() => c.write(buf, false), 1000)
   }
