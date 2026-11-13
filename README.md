@@ -18,3 +18,13 @@ await DiscoveryService.startScanning(scale => {
   console.log(measurement)
 })
 ```
+
+## Example Server
+
+Run the example server that automatically discovers, connects, and reads measurements:
+
+```bash
+npm run example
+```
+
+The server logs scale discoveries, connections, and measurements to the console.
